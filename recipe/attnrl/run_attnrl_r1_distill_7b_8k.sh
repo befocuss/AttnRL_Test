@@ -4,7 +4,7 @@ set -x
 
 NEW_CONDA_HOME=PATH_TO_CONDA  # e.g., /home/username/miniforge3
 BASE_PATH=PATH_TO_PROJECT_HOME  # e.g., /home/username/AttnRL
-MODEL_PATH=deepseek-ai/DeepSeek-R1-Distill-Qwen-1.5B
+MODEL_PATH=deepseek-ai/DeepSeek-R1-Distill-Qwen-7B
 
 cp $BASE_PATH/recipe/modeling_qwen2.py $NEW_CONDA_HOME/envs/attnrl/lib/python3.10/site-packages/transformers/models/qwen2/modeling_qwen2.py
 eval "$($NEW_CONDA_HOME/bin/conda shell.bash hook)"
@@ -14,7 +14,7 @@ cd $BASE_PATH
 export WANDB_API_KEY=YOUR_WANDB_API_KEY
 
 project_name='AttnRL'
-exp_name='DS-R1-Distill-1.5B-AttnRL'
+exp_name='DS-R1-Distill-7B-AttnRL'
 
 adv_estimator=attnrl
 use_kl_in_reward=False
@@ -36,7 +36,7 @@ train_prompt_mini_bsz=32
 # RAY_ADDRESS=${RAY_ADDRESS:-"http://localhost:8265"}
 # WORKING_DIR=${WORKING_DIR:-"${PWD}"}
 # RUNTIME_ENV=${RUNTIME_ENV:-"${WORKING_DIR}/verl/trainer/runtime_env.yaml"}
-NNODES=${NNODES:-1}
+NNODES=${NNODES:-3}
 NGPUS_PER_NODE=${NGPUS_PER_NODE:-8}
 # Paths
 RAY_DATA_HOME=${RAY_DATA_HOME:-"${BASE_PATH}"}

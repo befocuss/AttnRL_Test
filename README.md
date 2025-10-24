@@ -10,6 +10,7 @@
 
 ## 🔔 News
 
+- **[2025-10-21]** 📢 Our work is reported by [Synced (机器之心)](https://mp.weixin.qq.com/s/laPqnICWG-PIVIDQOTnbNQ)!
 - **[2025-10-10]** ✨ Code is now available.
 - **[2025-09-30]** 📄 Our paper is released on [arXiv](https://arxiv.org/abs/2509.26628).
 
