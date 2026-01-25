@@ -15,7 +15,7 @@ cd $BASE_PATH
 export WANDB_API_KEY=YOUR_WANDB_API_KEY
 
 project_name='AttnRL'
-exp_name='DS-R1-Distill-1.5B-AttnRL'
+exp_name='DS-R1-Distill-1.5B-TreeRL'
 
 adv_estimator=attnrl
 use_kl_in_reward=False
@@ -93,9 +93,6 @@ ${NEW_CONDA_HOME}/envs/attnrl/bin/python -m recipe.attnrl.main_attnrl \
     data.max_prompt_length=${max_prompt_length} \
     data.max_response_length=${max_response_length} \
     data.train_batch_size=${train_prompt_bsz} \
-    +data.dynamic_bsz=True \
-    +data.train_bsz_ema_alpha=1.0 \
-    +data.dynamic_bsz_ema_alpha=0.1 \
     data.filter_overlong_prompts=True \
     data.truncation='error' \
     data.trust_remote_code=True \
@@ -122,8 +119,6 @@ ${NEW_CONDA_HOME}/envs/attnrl/bin/python -m recipe.attnrl.main_attnrl \
     actor_rollout_ref.actor.fsdp_config.param_offload=${offload} \
     actor_rollout_ref.actor.fsdp_config.optimizer_offload=${offload} \
     actor_rollout_ref.actor.fsdp_config.fsdp_size=${fsdp_size} \
-    +actor_rollout_ref.actor.output_attentions=True \
-    +actor_rollout_ref.actor.attn_block_size=9216 \
     actor_rollout_ref.ref.strategy=fsdp2 \
     actor_rollout_ref.ref.fsdp_config.param_offload=True \
     actor_rollout_ref.ref.log_prob_use_dynamic_bsz=${use_dynamic_bsz} \
@@ -154,14 +149,9 @@ ${NEW_CONDA_HOME}/envs/attnrl/bin/python -m recipe.attnrl.main_attnrl \
     +actor_rollout_ref.rollout.balance_gen_batch=${balance_gen_batch} \
     algorithm.adv_estimator=${adv_estimator} \
     algorithm.use_kl_in_reward=${use_kl_in_reward} \
-    +algorithm.use_process_reward=${use_process_reward} \
-    +algorithm.process_reward_weight=${process_reward_weight} \
-    +algorithm.process_attn_type="after_step_sum" \
-    +algorithm.split_criterion="FCI" \
+    +algorithm.split_criterion="entropy" \
+    +algorithm.num_traces=30 \
     +algorithm.off_policy=True \
-    +algorithm.mc_type="attention_based_filtering" \
-    +algorithm.mc_diff_type="exp" \
-    +algorithm.filter_zero_std_adv_to_train=True \
     reward_model.reward_manager=rllm_skywork \
     reward_model.launch_reward_fn_async=True \
     +reward_model.reward_kwargs.reward_type=v2_math-verify \

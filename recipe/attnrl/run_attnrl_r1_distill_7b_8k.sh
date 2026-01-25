@@ -5,6 +5,7 @@ set -x
 NEW_CONDA_HOME=PATH_TO_CONDA  # e.g., /home/username/miniforge3
 BASE_PATH=PATH_TO_PROJECT_HOME  # e.g., /home/username/AttnRL
 MODEL_PATH=deepseek-ai/DeepSeek-R1-Distill-Qwen-7B
+wandb_offline=False
 
 cp $BASE_PATH/recipe/modeling_qwen2.py $NEW_CONDA_HOME/envs/attnrl/lib/python3.10/site-packages/transformers/models/qwen2/modeling_qwen2.py
 eval "$($NEW_CONDA_HOME/bin/conda shell.bash hook)"
@@ -45,6 +46,8 @@ ROLLOUT_DIR=${VAL_DIR:-"${RAY_DATA_HOME}/rollout/${project_name}/${exp_name}"}
 VAL_DIR=${VAL_DIR:-"${RAY_DATA_HOME}/val/${project_name}/${exp_name}"}
 REWARD_DIR=${REWARD_DIR:-"${RAY_DATA_HOME}/reward/${project_name}/${exp_name}"}
 WANDB_DIR_CUSTOM=${WANDB_DIR_CUSTOM:-"${RAY_DATA_HOME}/wandb_dir/${project_name}/${exp_name}"}
+LOG_DIR=${LOG_DIR:-"${RAY_DATA_HOME}/logs/${project_name}/${exp_name}"}
+mkdir -p ${LOG_DIR}
 TRAIN_FILE=${TRAIN_FILE:-"${RAY_DATA_HOME}/data/deepscaler/deepscaler_train.parquet"}
 # AIME24@32, AIME25@32, AMC23@32, MATH500@4, Minerva@4, Olympiad@4
 # 30 x 32,   30 x 32,   40 x 32,  500 x 4,   272 x 4,   674 x 4   = 8984 samples
@@ -75,7 +78,7 @@ max_actor_ckpt_to_keep=1
 balance_val_batch=True
 balance_gen_batch=True
 
-export WANDB_MODE=offline
+export WANDB_MODE=online
 export WANDB_DIR=${WANDB_DIR_CUSTOM}
 export WANDB_CACHE_DIR=${WANDB_DIR_CUSTOM}
 export WANDB_CONFIG_DIR=${WANDB_DIR_CUSTOM}
@@ -168,6 +171,7 @@ ${NEW_CONDA_HOME}/envs/attnrl/bin/python -m recipe.attnrl.main_attnrl \
     trainer.project_name="${project_name}" \
     trainer.experiment_name="${exp_name}" \
     trainer.logger=['console','wandb'] \
+    +trainer.wandb_offline=${wandb_offline} \
     trainer.log_val_generations=5 \
     trainer.rollout_data_dir="${ROLLOUT_DIR}" \
     +trainer.rollout_data_freq=20 \
@@ -180,4 +184,4 @@ ${NEW_CONDA_HOME}/envs/attnrl/bin/python -m recipe.attnrl.main_attnrl \
     trainer.val_before_train=True \
     trainer.test_freq=20 \
     trainer.default_local_dir="${CKPTS_DIR}" \
-    trainer.max_actor_ckpt_to_keep=${max_actor_ckpt_to_keep}
+    trainer.max_actor_ckpt_to_keep=${max_actor_ckpt_to_keep} 2>&1 | tee ${LOG_DIR}/$(date +%m%d-%H%M%S).log
