@@ -7,7 +7,7 @@ BASE_PATH=PATH_TO_PROJECT_HOME  # e.g., /home/username/AttnRL
 MODEL_PATH=deepseek-ai/DeepSeek-R1-Distill-Qwen-1.5B
 wandb_offline=False
 
-cp $BASE_PATH/recipe/modeling_qwen2.py $NEW_CONDA_HOME/envs/attnrl/lib/python3.10/site-packages/transformers/models/qwen2/modeling_qwen2.py
+# cp $BASE_PATH/recipe/modeling_qwen2.py $NEW_CONDA_HOME/envs/attnrl/lib/python3.10/site-packages/transformers/models/qwen2/modeling_qwen2.py
 eval "$($NEW_CONDA_HOME/bin/conda shell.bash hook)"
 conda activate attnrl
 cd $BASE_PATH
