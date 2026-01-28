@@ -2,20 +2,47 @@
 
 set -x
 
-NEW_CONDA_HOME=PATH_TO_CONDA  # e.g., /home/username/miniforge3
-BASE_PATH=PATH_TO_PROJECT_HOME  # e.g., /home/username/AttnRL
-MODEL_PATH=deepseek-ai/DeepSeek-R1-Distill-Qwen-1.5B
+set -euo pipefail
+
+# Optional overrides:
+# - NEW_CONDA_HOME: conda install prefix (e.g., /home/username/miniforge3)
+# - BASE_PATH: AttnRL repo root (e.g., /home/username/AttnRL)
+# - CONDA_ENV_NAME: conda env name (default: attnrl)
+NEW_CONDA_HOME="${NEW_CONDA_HOME:-}"
+BASE_PATH="${BASE_PATH:-}"
+CONDA_ENV_NAME="${CONDA_ENV_NAME:-attnrl}"
+
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+if [[ -z "${BASE_PATH}" ]]; then
+  # This script lives at: AttnRL/recipe/attnrl/*.sh → repo root is two levels up.
+  BASE_PATH="$(cd "${SCRIPT_DIR}/../.." && pwd)"
+fi
+
+# Prefer an existing `conda` on PATH; otherwise fall back to NEW_CONDA_HOME.
+if command -v conda >/dev/null 2>&1; then
+  CONDA_BASE="$(conda info --base)"
+elif [[ -n "${NEW_CONDA_HOME}" && -x "${NEW_CONDA_HOME}/bin/conda" ]]; then
+  CONDA_BASE="${NEW_CONDA_HOME}"
+else
+  echo "ERROR: conda not found. Ensure conda is on PATH, or set NEW_CONDA_HOME to your conda prefix." >&2
+  exit 1
+fi
+
+# shellcheck disable=SC1090
+source "${CONDA_BASE}/etc/profile.d/conda.sh"
+conda activate "${CONDA_ENV_NAME}"
+PYTHON_BIN="${CONDA_PREFIX}/bin/python"
+
+MODEL_PATH=/root/Model/Qwen2.5-0.5B-Instruct
 wandb_offline=False
 
-cp $BASE_PATH/recipe/modeling_qwen2.py $NEW_CONDA_HOME/envs/attnrl/lib/python3.10/site-packages/transformers/models/qwen2/modeling_qwen2.py
-eval "$($NEW_CONDA_HOME/bin/conda shell.bash hook)"
-conda activate attnrl
+# cp $BASE_PATH/recipe/modeling_qwen2.py $NEW_CONDA_HOME/envs/attnrl/lib/python3.10/site-packages/transformers/models/qwen2/modeling_qwen2.py
 cd $BASE_PATH
 
-export WANDB_API_KEY=YOUR_WANDB_API_KEY
+export WANDB_API_KEY=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
 
 project_name='AttnRL'
-exp_name='DS-R1-Distill-1.5B-AttnRL'
+exp_name='Qwen2.5-0.5B-Instruct-AttnRL-GSM8K'
 
 adv_estimator=attnrl
 use_kl_in_reward=False
@@ -25,9 +52,11 @@ kl_loss_coef=0.001
 clip_ratio_low=0.2
 clip_ratio_high=0.28
 loss_agg_mode="token-mean"
+use_process_reward=False
+process_reward_weight=0.0
 
 max_prompt_length=$((1024 * 1))
-max_response_length=$((1024 * 8))
+max_response_length=$((1024 * 1))
 
 train_prompt_bsz=64
 n_resp_per_prompt=6
@@ -38,26 +67,25 @@ train_prompt_mini_bsz=32
 # WORKING_DIR=${WORKING_DIR:-"${PWD}"}
 # RUNTIME_ENV=${RUNTIME_ENV:-"${WORKING_DIR}/verl/trainer/runtime_env.yaml"}
 NNODES=${NNODES:-1}
-NGPUS_PER_NODE=${NGPUS_PER_NODE:-8}
+NGPUS_PER_NODE=${NGPUS_PER_NODE:-2}
 # Paths
 RAY_DATA_HOME=${RAY_DATA_HOME:-"${BASE_PATH}"}
-CKPTS_DIR=${CKPTS_DIR:-"${RAY_DATA_HOME}/ckpts/${project_name}/${exp_name}"}
+CKPTS_DIR=${CKPTS_DIR:-"/opt/mizar"}
 ROLLOUT_DIR=${VAL_DIR:-"${RAY_DATA_HOME}/rollout/${project_name}/${exp_name}"}
 VAL_DIR=${VAL_DIR:-"${RAY_DATA_HOME}/val/${project_name}/${exp_name}"}
 REWARD_DIR=${REWARD_DIR:-"${RAY_DATA_HOME}/reward/${project_name}/${exp_name}"}
 WANDB_DIR_CUSTOM=${WANDB_DIR_CUSTOM:-"${RAY_DATA_HOME}/wandb_dir/${project_name}/${exp_name}"}
 LOG_DIR=${LOG_DIR:-"${RAY_DATA_HOME}/logs/${project_name}/${exp_name}"}
 mkdir -p ${LOG_DIR}
-TRAIN_FILE=${TRAIN_FILE:-"${RAY_DATA_HOME}/data/deepscaler/deepscaler_train.parquet"}
-# AIME24@32, AIME25@32, AMC23@32, MATH500@4, Minerva@4, Olympiad@4
-# 30 x 32,   30 x 32,   40 x 32,  500 x 4,   272 x 4,   674 x 4   = 8984 samples
-TEST_FILE=${TEST_FILE:-"['${RAY_DATA_HOME}/data/eval/aime24_32.parquet', '${RAY_DATA_HOME}/data/eval/aime25_32.parquet', '${RAY_DATA_HOME}/data/eval/amc23_32.parquet', '${RAY_DATA_HOME}/data/eval/math500_4.parquet', '${RAY_DATA_HOME}/data/eval/minerva_4.parquet', '${RAY_DATA_HOME}/data/eval/olympiad_4.parquet']"}
+TRAIN_FILE=${TRAIN_FILE:-"/root/Data/gsm8k/main/train-00000-of-00001.parquet"}
+# GSM8K test set
+TEST_FILE=${TEST_FILE:-"/root/Data/gsm8k/main/test-00000-of-00001.parquet"}
 
 # Algorithm
 temperature=1.0
 top_p=1.0
 top_k=-1
-val_temperature=0.6
+val_temperature=0
 val_top_p=1.0
 
 # Performance Related Parameter
@@ -86,10 +114,10 @@ export WANDB_DATA_DIR=${WANDB_DIR_CUSTOM}
 export WANDB_ARTIFACT_DIR=${WANDB_DIR_CUSTOM}
 export WANDB_ARTIFACT_LOCATION=${WANDB_DIR_CUSTOM}
 mkdir -p "${WANDB_DIR_CUSTOM}"
-${NEW_CONDA_HOME}/envs/attnrl/bin/python -m recipe.attnrl.main_attnrl \
+${PYTHON_BIN} -m recipe.attnrl.main_attnrl \
     data.train_files="${TRAIN_FILE}" \
     data.val_files="${TEST_FILE}" \
-    data.prompt_key=prompt \
+    data.prompt_key=question \
     data.max_prompt_length=${max_prompt_length} \
     data.max_response_length=${max_response_length} \
     data.train_batch_size=${train_prompt_bsz} \
@@ -166,8 +194,8 @@ ${NEW_CONDA_HOME}/envs/attnrl/bin/python -m recipe.attnrl.main_attnrl \
     reward_model.launch_reward_fn_async=True \
     +reward_model.reward_kwargs.reward_type=v2_math-verify \
     +reward_model.reward_kwargs.reward_timeout=5 \
-    trainer.total_epochs=30 \
-    trainer.total_training_steps=801 \
+    trainer.total_epochs=10 \
+    trainer.total_training_steps=1160 \
     trainer.project_name="${project_name}" \
     trainer.experiment_name="${exp_name}" \
     trainer.logger=['console','wandb'] \
@@ -180,8 +208,8 @@ ${NEW_CONDA_HOME}/envs/attnrl/bin/python -m recipe.attnrl.main_attnrl \
     trainer.nnodes="${NNODES}" \
     trainer.n_gpus_per_node="${NGPUS_PER_NODE}" \
     trainer.save_freq=10 \
-    trainer.resume_mode=auto \
+    trainer.resume_mode=disable \
     trainer.val_before_train=True \
-    trainer.test_freq=20 \
+    trainer.test_freq=5 \
     trainer.default_local_dir="${CKPTS_DIR}" \
     trainer.max_actor_ckpt_to_keep=${max_actor_ckpt_to_keep} 2>&1 | tee ${LOG_DIR}/$(date +%m%d-%H%M%S).log

@@ -571,11 +571,12 @@ class TreeWorker:
                         idxs_per_resp, sort_indices = torch.sort(idxs_per_resp, dim=-1)
                         repeat_times_per_q[idxs_per_resp] = 1
                     else:
-                        breakpoint()
+                        # breakpoint()  # Disabled for training
+                        pass
                 assert repeat_times_per_q.sum().item() == self.config.actor_rollout_ref.rollout.n_real, f"repeat_times_per_q.sum().item() = {repeat_times_per_q.sum().item()} != n_real = {self.config.actor_rollout_ref.rollout.n_real}"
             except Exception as e:
                 print(f"Error in filtering responses: {e}")
-                breakpoint()
+                # breakpoint()  # Disabled for training
 
             repeat_times.extend(repeat_times_per_q.tolist())
 
@@ -886,7 +887,7 @@ class TreeWorker:
                 assert (mc_batch.batch["responses"][i, :token_idx] == self.pad_token_id).sum().item() == 0, f"pad_token_id {self.pad_token_id} appears in mc_batch.batch['responses'][{i}, :{token_idx}]"
             except Exception as e:
                 print(e)
-                breakpoint()
+                # breakpoint()  # Disabled for training
             mc_raw_prompt_id = prompt_id[-prompt_length:].tolist() + mc_batch.batch["responses"][i, :token_idx].tolist()
             mc_raw_prompt_ids.append(mc_raw_prompt_id)
         mc_batch.non_tensor_batch["raw_prompt_ids"] = mc_raw_prompt_ids

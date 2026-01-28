@@ -469,6 +469,7 @@ class DataParallelPPOActor(BasePPOActor):
                         log_prob=log_prob,
                         advantages=advantages,
                         response_mask=response_mask,
+                        high_entropy_mask=None,
                         cliprange=clip_ratio,
                         cliprange_low=clip_ratio_low,
                         cliprange_high=clip_ratio_high,

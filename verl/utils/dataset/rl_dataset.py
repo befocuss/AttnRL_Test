@@ -33,6 +33,30 @@ from verl.utils.model import compute_position_id_with_mask
 
 logger = logging.getLogger(__name__)
 
+_GSM8K_ANSWER_RE = re.compile(r"####\s*(\-?[0-9\.\,]+)")
+
+
+def normalize_chat_messages(value) -> list[dict]:
+    """
+    Normalize various prompt formats into a list of chat messages.
+
+    Supported inputs:
+    - str: treated as a single user message
+    - dict: treated as a single message
+    - list[dict]: treated as already-normalized messages
+    """
+    if value is None:
+        return [{"role": "user", "content": ""}]
+    if isinstance(value, list):
+        # Assume it's already a list of message dicts.
+        return value
+    if isinstance(value, dict):
+        return [value]
+    if isinstance(value, str):
+        return [{"role": "user", "content": value}]
+    # Fallback: stringify unknown types (e.g., numbers)
+    return [{"role": "user", "content": str(value)}]
+
 
 def collate_fn(data_list: list[dict]) -> dict:
     """
@@ -108,6 +132,9 @@ class RLHFDataset(Dataset):
         self.truncation = config.get("truncation", "error")
         self.filter_overlong_prompts = config.get("filter_overlong_prompts", True)
         self.apply_chat_template_kwargs = config.get("apply_chat_template_kwargs", {})
+        self.prompt_suffix = config.get("prompt_suffix", "")
+        # Used when raw datasets don't carry a data_source column (e.g. vanilla gsm8k parquet).
+        self.default_data_source = config.get("data_source", "openai/gsm8k")
 
         self.num_workers = config.get("filter_overlong_prompts_workers", max(1, os.cpu_count() // 4))
         self.num_workers = min(self.num_workers, os.cpu_count())
@@ -145,7 +172,9 @@ class RLHFDataset(Dataset):
                 self.dataframe = self.dataframe.filter(
                     lambda doc: len(
                         tokenizer.apply_chat_template(
-                            doc[prompt_key], add_generation_prompt=True, **self.apply_chat_template_kwargs
+                            normalize_chat_messages(doc[prompt_key]),
+                            add_generation_prompt=True,
+                            **self.apply_chat_template_kwargs,
                         )
                     ) + 2 <= self.max_prompt_length,
                     num_proc=self.num_workers,
@@ -155,7 +184,9 @@ class RLHFDataset(Dataset):
                 self.dataframe = self.dataframe.filter(
                     lambda doc: len(
                         tokenizer.apply_chat_template(
-                            doc[prompt_key], add_generation_prompt=True, **self.apply_chat_template_kwargs
+                            normalize_chat_messages(doc[prompt_key]),
+                            add_generation_prompt=True,
+                            **self.apply_chat_template_kwargs,
                         )
                     ) <= self.max_prompt_length,
                     num_proc=self.num_workers,
@@ -177,7 +208,11 @@ class RLHFDataset(Dataset):
         return len(self.dataframe)
 
     def _build_messages(self, example: dict):
-        messages: list = example.pop(self.prompt_key)
+        raw_messages = example.pop(self.prompt_key)
+        messages: list[dict] = normalize_chat_messages(raw_messages)
+        if self.prompt_suffix and isinstance(raw_messages, str) and messages:
+            # Append formatting instruction for string prompts.
+            messages[0]["content"] = f'{messages[0]["content"]}{self.prompt_suffix}'
 
         if self.image_key in example or self.video_key in example:
             for message in messages:
@@ -200,6 +235,23 @@ class RLHFDataset(Dataset):
         Note that we also return the raw_input_ids so that it can be combined with other chat template
         """
         row_dict: dict = self.dataframe[item]
+
+        # Backfill common fields when using "raw" parquet datasets (e.g. gsm8k main parquet
+        # which only has question/answer).
+        if "data_source" not in row_dict:
+            row_dict["data_source"] = self.default_data_source
+
+        if "reward_model" not in row_dict:
+            ground_truth = None
+            answer_raw = row_dict.get("answer", None)
+            if isinstance(answer_raw, str):
+                m = _GSM8K_ANSWER_RE.search(answer_raw)
+                if m is not None:
+                    ground_truth = m.group(1).replace(",", "")
+            if ground_truth is None and answer_raw is not None:
+                ground_truth = str(answer_raw)
+            row_dict["reward_model"] = {"style": "rule", "ground_truth": ground_truth}
+
         messages = self._build_messages(row_dict)
         model_inputs = {}
 

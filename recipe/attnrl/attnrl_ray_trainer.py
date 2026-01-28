@@ -309,14 +309,14 @@ class RayAttnRLTrainer(RayPPOTrainer):
                 try:
                     assert len(temp_batch) == size_per_gpu, f"{len(temp_batch)=}, {size_per_gpu=}"
                 except Exception as e:
-                    breakpoint()
+                    # breakpoint()  # Disabled for training
                     print(e)
                 new_batch_lst.append(temp_batch)
                 start = end
             try:
                 assert end == len(batch), f"{end=}, {len(batch)=}"
             except Exception as e:
-                breakpoint()
+                # breakpoint()  # Disabled for training
                 print(e)
             batch = DataProto.concat(new_batch_lst)
 
@@ -335,7 +335,7 @@ class RayAttnRLTrainer(RayPPOTrainer):
                     collated[key] = np.array(values, dtype=object)
             except Exception as e:
                 print(f"Collate error: {e}")
-                breakpoint()
+                # breakpoint()  # Disabled for training
         return collated
 
     def _batch_sampler(self):
@@ -724,7 +724,7 @@ class RayAttnRLTrainer(RayPPOTrainer):
                                         pickle.dump(self.tree_worker.paths, f)
                                 except Exception as e:
                                     print(e)
-                                    breakpoint()
+                                    # breakpoint()  # Disabled for training
 
                     # validate
                     # if self.val_reward_fn is not None and self.config.trainer.test_freq > 0 and (is_last_step or self.global_steps % self.config.trainer.test_freq == 0):

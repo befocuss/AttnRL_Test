@@ -390,14 +390,14 @@ class RayAttnRLTrainerOffAttnInfer(RayPPOTrainer):
                 try:
                     assert len(temp_batch) == size_per_gpu, f"{len(temp_batch)=}, {size_per_gpu=}"
                 except Exception as e:
-                    breakpoint()
+                    # breakpoint()  # Disabled for training
                     print(e)
                 new_batch_lst.append(temp_batch)
                 start = end
             try:
                 assert end == len(batch), f"{end=}, {len(batch)=}"
             except Exception as e:
-                breakpoint()
+                # breakpoint()  # Disabled for training
                 print(e)
             batch = DataProto.concat(new_batch_lst)
 
@@ -416,7 +416,7 @@ class RayAttnRLTrainerOffAttnInfer(RayPPOTrainer):
                     collated[key] = np.array(values, dtype=object)
             except Exception as e:
                 print(f"Collate error: {e}")
-                breakpoint()
+                # breakpoint()  # Disabled for training
         return collated
 
     def _batch_sampler(self):

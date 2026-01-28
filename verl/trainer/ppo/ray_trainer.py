@@ -1352,8 +1352,12 @@ class RayPPOTrainer:
             for i in range(world_size):
                 is_padding.extend([0] * len(global_partition_lst[i]))
                 if padding_sizes[i] > 0:
-                    global_partition_lst[i].extend([global_partition_lst[i][-1]] * padding_sizes[i])
-                    is_padding.extend([1] * padding_sizes[i])
+                    # Guard against empty partition: if partition is empty, skip padding.
+                    if len(global_partition_lst[i]) > 0:
+                        global_partition_lst[i].extend([global_partition_lst[i][-1]] * padding_sizes[i])
+                        is_padding.extend([1] * padding_sizes[i])
+                    # If partition is empty, we can't pad (no valid index to replicate).
+                    # This should ideally not happen with proper batch sizing, but we add this guard for robustness.
 
             global_idx = torch.tensor([j for partition in global_partition_lst for j in partition])
             batch.reorder(global_idx)
@@ -1388,7 +1392,7 @@ class RayPPOTrainer:
                     raise NotImplementedError(f"Batch order changed! {key} not equal!!")
 
             print(f"Batch order changed! {key}: {e}")
-            breakpoint()
+            # breakpoint()  # Disabled for training
 
     def compute_valid_metrics(self, epoch, batch: DataProto, is_correct, metrics: dict, mode="grpo"):
         data_indices = batch.non_tensor_batch["index"]
@@ -1700,7 +1704,8 @@ class RayPPOTrainer:
                                         try:
                                             assert valid_length == step_num
                                         except Exception as e:
-                                            breakpoint()
+                                            # breakpoint()  # Disabled for training
+                                            pass
                                         attn_scores = attn_scores[:step_num]
                                         # k = int(len(attn_scores) * 0.2)
                                         k = len(attn_scores)
